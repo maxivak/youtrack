@@ -1,4 +1,4 @@
-# Youtrack::Ruby
+# Youtrack ruby gem
 Youtrack API client.
 
 Youtrack REST API - https://www.jetbrains.com/help/youtrack/standalone/YouTrack-REST-API-Reference.html.
