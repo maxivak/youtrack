@@ -19,6 +19,8 @@ Gem::Specification.new do |s|
   #s.add_dependency "rails", "~> 5.1.3"
 
   s.add_dependency 'rest-client', ">=2.0.2"
+  s.add_dependency 'httparty', ">=0.15.6"
+  s.add_dependency 'rack-cors', ">=1.0.0"
 
 
   s.add_development_dependency "sqlite3"
