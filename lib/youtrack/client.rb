@@ -10,6 +10,68 @@ module Youtrack
 
     end
 
+
+    def get_projects
+      #GET /rest/project/all?{verbose}
+
+      path = "/rest/project/all"
+      headers = build_headers
+
+      url = server+path
+
+      require 'rest-client'
+
+      response = RestClient.get(url, headers)
+
+      data = JSON.parse response.body, symbolize_names: true
+
+      data
+    end
+
+
+
+    def get_issues(project_id, opts={})
+      #GET /rest/issue/byproject/{project}?{filter}&{after}&{max}&{updatedAfter}&{wikifyDescription}
+
+      s_opts = self.class.build_http_query opts
+      path = "/rest/issue/byproject/#{project_id}?#{s_opts}"
+
+      headers = build_headers
+
+      url = server+path
+
+      require 'rest-client'
+
+      response = RestClient.get(url, headers)
+
+      data = JSON.parse response.body, symbolize_names: true
+
+      data
+    end
+
+
+    def get_issues_filter(project_id, filter)
+      # GET /rest/issue/byproject/{project}?{filter}&{after}&{max}&{updatedAfter}&{wikifyDescription}
+
+      f = []
+      filter.each {|k ,v| f << "#{k}: #{v}"}
+      s_filter = f.join(' ')
+      #s_filter = "old_id: temp-41"
+
+      path = "/rest/issue/byproject/#{project_id}?filter=#{s_filter}"
+      headers = build_headers
+
+      url = server+path
+
+      require 'rest-client'
+
+      response = RestClient.get(url, headers)
+
+      data = JSON.parse response.body, symbolize_names: true
+
+      data
+    end
+
     def get_issue(issue_id)
       path = "/rest/issue/#{issue_id}"
       headers = build_headers
@@ -46,19 +108,6 @@ module Youtrack
       data
     end
 
-    def check_issue(issue)
-      http = Net::HTTP.new($server_url)
-      issue_url = "/rest/issue/#{issue}"
-      request = Net::HTTP::Get.new(issue_url)
-      response = http.request(request)
-
-      if response.code == '404'
-        puts "[Policy Violation] - Issue not found: ##{issue}"
-        invalid_commit
-      end
-
-      validate_issue_approved(response.body, issue) if response.code == '200'
-    end
 
 
     def create_issue(data)
@@ -83,7 +132,23 @@ module Youtrack
     end
 
 
-    def update_issue(issue_id, data)
+    def update_issue(issue_id, summary, desc)
+      headers = build_headers
+
+      options = {}
+
+      ss = Rack::Utils.escape("#{summary}")
+      sd = Rack::Utils.escape("#{desc}")
+
+      resp = api_do_request :post, "/rest/issue/#{issue_id}?summary=#{ss}&description=#{sd}", {}, headers
+
+      return false if resp.code!=200
+
+
+      true
+    end
+
+    def update_issue_data(issue_id, data)
       headers = build_headers
 
       options = {}
@@ -143,6 +208,18 @@ module Youtrack
     end
 
 
+    def delete_issue(issue_id)
+      #DELETE /rest/issue/{issue}
+
+      headers = build_headers
+
+      resp = api_do_request :delete, "/rest/issue/#{issue_id}", {}, headers
+
+      true
+    end
+
+
+
     ### helpers
 
     def api_do_request(method, u, data, headers={})
@@ -196,7 +273,7 @@ module Youtrack
 
 
     def self.build_http_query(p)
-      p.map{|k,v| "#{k}=#{v}"}.join('&')
+      p.map{|k,v| "#{k}=#{Rack::Utils.escape(v)}"}.join('&')
     end
 
   end
