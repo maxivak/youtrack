@@ -36,8 +36,41 @@ $ gem install youtrack
 * specify server url and token to init a client
 
 ```
-client = Youtrack::Client.new 'http://example.com', 'XXXX'
+client = Youtrack::Client.new 'http://example.com', 'your_youtrack_token'
 ```
+
+## custom API request
+ 
+* use method
+```
+client.request(http_method, path, data, extra_headers={})
+```
+
+* example - get the projects list
+ 
+```
+client = Youtrack::Client.new 'http://example.com', 'your_youtrack_token'
+
+projects = client.request(:get, '/api/admin/projects', {})
+
+puts "#{projects.inspect}"
+
+[{:id=>"0-0", :$type=>"jetbrains.charisma.persistent.Project"}]
+
+
+
+# API request with params
+projects = client.request(:get, '/api/admin/projects', {fields: "id,name"})
+
+puts "#{projects.inspect}"
+
+[{:name=>"prj1", :id=>"0-0", :$type=>"jetbrains.charisma.persistent.Project"}]
+
+
+```
+
+* see REST API - https://www.jetbrains.com/help/youtrack/standalone/api-admin-projects.html#get-api-admin-projects
+
 
 ## Get issue
 

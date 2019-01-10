@@ -11,6 +11,24 @@ module Youtrack
     end
 
 
+
+    def request(http_method, path, data, extra_headers={})
+      request_headers = build_headers(extra_headers)
+      url_data = Youtrack::Client.build_http_query data
+
+      resp = api_do_request http_method, path, data, request_headers
+
+      #puts "response: #{resp.code}, #{resp.body}, #{resp.headers}"
+      #logger.info "response: #{resp.code}, headers: #{resp.headers}"
+      #if resp.code!=201 && resp.code!=200
+      #  return nil
+      #end
+
+      resp_data = JSON.parse resp.body, symbolize_names: true
+
+      resp_data
+    end
+
     def get_projects
       #GET /rest/project/all?{verbose}
 
@@ -56,7 +74,6 @@ module Youtrack
       f = []
       filter.each {|k ,v| f << "#{k}: #{v}"}
       s_filter = f.join(' ')
-      #s_filter = "old_id: temp-41"
 
       path = "/rest/issue/byproject/#{project_id}?filter=#{s_filter}"
       headers = build_headers
@@ -81,7 +98,7 @@ module Youtrack
       require 'rest-client'
 
       #response = RestClient.get(url, headers.merge({content_type: :json, accept: :json}) )
-      response = RestClient.get(url, headers )
+      response = RestClient.get(url, headers)
 
 
       #response = HTTParty.get(url, format: :json, pem: TOKEN, :options => { :headers => headers} )
@@ -229,12 +246,12 @@ module Youtrack
 
       url = server + '/'+ u
 
-      headers['Content-Type'] = "application/json"
-      headers['Accept'] = "application/json"
+      #headers['Content-Type'] = "application/json"
+      #headers['Accept'] = "application/json"
 
       # do http request
       request_params = {:query=>data, :headers => headers}
-      request_params[:timeout] = 500
+      request_params[:timeout] = 5000
 
       if method==:post
         response = HTTParty.post(url, request_params)
@@ -252,7 +269,6 @@ module Youtrack
 
 
       return response
-      #return resp_data
     end
 
 
@@ -260,7 +276,7 @@ module Youtrack
 
 
 
-    def build_headers
+    def build_headers(extra_headers={})
       headers = {
           'Content-Type' => 'application/json',
           'Accept' => 'application/json',
@@ -268,7 +284,7 @@ module Youtrack
 
       }
 
-      headers
+      headers.merge(extra_headers)
     end
 
 
