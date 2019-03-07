@@ -30,9 +30,9 @@ module Youtrack
     end
 
     def get_projects
-      #GET /rest/project/all?{verbose}
+      #https://www.jetbrains.com/help/youtrack/incloud/api-admin-projects.html
 
-      path = "/rest/project/all"
+      path = "/admin/projects"
       headers = build_headers
 
       url = server+path
@@ -49,10 +49,9 @@ module Youtrack
 
 
     def get_issues(project_id, opts={})
-      #GET /rest/issue/byproject/{project}?{filter}&{after}&{max}&{updatedAfter}&{wikifyDescription}
-
+      #
       s_opts = self.class.build_http_query opts
-      path = "/rest/issue/byproject/#{project_id}?#{s_opts}"
+      path = "/issues/byproject/#{project_id}?#{s_opts}"
 
       headers = build_headers
 
@@ -89,11 +88,12 @@ module Youtrack
       data
     end
 
-    def get_issue(issue_id)
-      path = "/rest/issue/#{issue_id}"
+    def get_issue(issue_id, return_fields=nil)
+      path = "/issues/#{issue_id}"
       headers = build_headers
 
-      url = server+path
+      #url = URI.join(server, path).to_s
+      url = server+ path
 
       require 'rest-client'
 
@@ -127,37 +127,48 @@ module Youtrack
 
 
 
-    def create_issue(data)
+    def create_issue(project_id, fields_data, return_fields=nil)
+      # https://www.jetbrains.com/help/youtrack/incloud/api-issues.html
       options = {}
 
       # request
       headers = build_headers
-      url_data = Youtrack::Client.build_http_query data
+      #url_data = Youtrack::Client.build_http_query data
 
-      resp = api_do_request :put, "/rest/issue?#{url_data}", data, headers
+      data = fields_data.dup
+      data[:project] = {id: project_id}
 
-      #logger.info "response: #{resp.code}, headers: #{resp.headers}"
-      if resp.code!=201
+
+      resp = api_do_request :post, "/issues", nil, data, headers
+
+      if resp.code!=200
         return nil
       end
 
-      u_issue = resp.headers['location']
+      data = JSON.parse resp.body, symbolize_names: true
 
-      issue_id = u_issue.scan(/http.*\/rest\/issue\/(.*?)$/).last.first
+      issue_id = data[:id]
 
       issue_id
     end
 
 
-    def update_issue(issue_id, summary, desc)
+    def update_issue(issue_id, summary, desc, return_fields=nil)
+      # https://www.jetbrains.com/help/youtrack/incloud/api-issues-id.html#post-issues-id
+
       headers = build_headers
 
       options = {}
 
-      ss = Rack::Utils.escape("#{summary}")
-      sd = Rack::Utils.escape("#{desc}")
+      data = {
+          summary: summary,
+          description: desc,
 
-      resp = api_do_request :post, "/rest/issue/#{issue_id}?summary=#{ss}&description=#{sd}", {}, headers
+      }
+      #ss = Rack::Utils.escape("#{summary}")
+      #sd = Rack::Utils.escape("#{desc}")
+
+      resp = api_do_request :post, "/issues/#{issue_id}", nil, data, headers
 
       return false if resp.code!=200
 
@@ -165,18 +176,20 @@ module Youtrack
       true
     end
 
-    def update_issue_data(issue_id, data)
+    def update_issue_data(issue_id, fields)
       headers = build_headers
 
-      options = {}
+      fields.each do |name, v|
+        #vs = Rack::Utils.escape("#{name} '#{v}'")
+        vs = "#{name} #{v}"
 
-      data.each do |name, v|
-        url_data = Rack::Utils.escape("#{name} #{v}")
+        post_data = {
+            query: vs,
+            issues: [ { id: issue_id } ]
+        }
 
-        resp = api_do_request :post, "/rest/issue/#{issue_id}/execute?command=#{url_data}", {}, headers
+        resp = api_do_request :post, "commands", nil, post_data, headers
 
-        # TODO: check response code
-        #puts "resp code: #{resp.code}"
       end
 
       true
@@ -239,7 +252,7 @@ module Youtrack
 
     ### helpers
 
-    def api_do_request(method, u, data, headers={})
+    def api_do_request(method, u, query_data, data, headers={})
       #require 'http'
 
       u.sub!(/^\//, '')
@@ -250,7 +263,14 @@ module Youtrack
       #headers['Accept'] = "application/json"
 
       # do http request
-      request_params = {:query=>data, :headers => headers}
+      request_params = {:headers => headers}
+      if query_data
+        request_params[:query] = query_data
+      end
+      if data
+        request_params[:body] = data.to_json
+      end
+
       request_params[:timeout] = 5000
 
       if method==:post
